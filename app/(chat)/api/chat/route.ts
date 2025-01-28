@@ -53,6 +53,10 @@ export async function POST(request: Request) {
   }: { id: string; messages: Array<Message>; modelId: string } =
     await request.json();
 
+  // TODO: REMOVE
+  // Log the incoming request
+  console.log('⭐ Chat API received request:', { id, modelId });
+
   const session = await auth();
 
   if (!session || !session.user || !session.user.id) {
@@ -60,6 +64,10 @@ export async function POST(request: Request) {
   }
 
   const model = models.find((model) => model.id === modelId);
+
+  // TODO: REMOVE
+  // Log the found model
+  console.log('🌟 Using model:', model);
 
   if (!model) {
     return new Response('Model not found', { status: 404 });

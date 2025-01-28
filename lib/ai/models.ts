@@ -20,6 +20,12 @@ export const models: Array<Model> = [
     apiIdentifier: 'gpt-4o',
     description: 'For complex, multi-step tasks',
   },
+  {
+    id: 'anserini-java',
+    label: 'Anserini Java',
+    apiIdentifier: 'anserini-java',
+    description: 'Anserini\'s retrieval model (Java)',
+  },
 ] as const;
 
 export const DEFAULT_MODEL_NAME: string = 'gpt-4o-mini';

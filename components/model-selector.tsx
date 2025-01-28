@@ -25,6 +25,10 @@ export function ModelSelector({
   const [optimisticModelId, setOptimisticModelId] =
     useOptimistic(selectedModelId);
 
+  // TODO: REMOVE
+  // Log initial model
+  console.log('🎯 ModelSelector initialized with:', selectedModelId);
+
   const selectedModel = useMemo(
     () => models.find((model) => model.id === optimisticModelId),
     [optimisticModelId],
@@ -51,6 +55,8 @@ export function ModelSelector({
             onSelect={() => {
               setOpen(false);
 
+              // TODO: REMOVE
+              console.log('🎯 Model selected:', model.id);
               startTransition(() => {
                 setOptimisticModelId(model.id);
                 saveModelId(model.id);
