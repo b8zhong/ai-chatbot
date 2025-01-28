@@ -22,7 +22,7 @@ export const models: Array<Model> = [
   },
   {
     id: 'anserini-java',
-    label: 'Anserini Java',
+    label: 'MS MARCO V1',
     apiIdentifier: 'anserini-java',
     description: 'Anserini\'s retrieval model (Java)',
   },

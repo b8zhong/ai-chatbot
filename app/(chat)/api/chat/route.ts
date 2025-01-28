@@ -112,7 +112,7 @@ export async function POST(request: Request) {
     
     // Format results as markdown
     const formattedResults = `### Search Results\n\n${searchResults.candidates.map((result: any, index: number) => (
-      `${index + 1}. **Score:** ${result.score}\n   ${result.doc.body || result.doc}\n\n`
+      `${index + 1}. **DocID:** ${result.docid} | **Score:** ${result.score}\n\n${result.doc.contents}\n\n`
     )).join('')}`;
 
     console.log(JSON.stringify(formattedResults, null, 4))
