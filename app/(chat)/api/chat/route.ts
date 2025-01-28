@@ -73,6 +73,108 @@ export async function POST(request: Request) {
     return new Response('Model not found', { status: 404 });
   }
 
+  // Handle Anserini search
+  if (model.id === 'anserini-java') {
+    const coreMessages = convertToCoreMessages(messages);
+    const userMessage = getMostRecentUserMessage(coreMessages);
+    if (!userMessage) {
+      return new Response('No user message found', { status: 400 });
+    }
+
+    console.log('🌟 User message:', userMessage);
+
+    // Save the chat if it doesn't exist
+    const chat = await getChatById({ id });
+    if (!chat) {
+      const title = await generateTitleFromUserMessage({ message: userMessage });
+      await saveChat({ id, userId: session.user.id, title });
+    }
+
+    // Generate and save message IDs
+    const userMessageId = generateUUID();
+    const assistantMessageId = generateUUID();
+
+    // Save the user message
+    await saveMessages({
+      messages: [
+        { ...userMessage, id: userMessageId, createdAt: new Date(), chatId: id },
+      ],
+    });
+
+    // Make request to Anserini API
+    const searchQuery = encodeURIComponent(userMessage.content.toString());
+    console.log("Search query:", searchQuery)
+    console.log("About to fetch the API.")
+    const response = await fetch(`http://localhost:8081/api/v1.0/indexes/msmarco-v1-passage/search?query=${searchQuery}`);
+    console.log("Fetched the API.")
+    const searchResults = await response.json();
+    console.log("Search results:", JSON.stringify(searchResults, null, 2))
+    
+    // Format results as markdown
+    const formattedResults = `### Search Results\n\n${searchResults.candidates.map((result: any, index: number) => (
+      `${index + 1}. **Score:** ${result.score}\n   ${result.doc.body || result.doc}\n\n`
+    )).join('')}`;
+
+    console.log(JSON.stringify(formattedResults, null, 4))
+
+    console.log("Formatted the results.")
+
+    // Save the assistant message
+    await saveMessages({
+      messages: [
+        {
+          id: assistantMessageId,
+          role: 'assistant',
+          content: formattedResults,
+          createdAt: new Date(),
+          chatId: id
+        }
+      ]
+    });
+
+    console.log("messages:", JSON.stringify(messages, null, 2))
+    // Return as a streaming response
+    return createDataStreamResponse({
+      execute: async (dataStream) => {
+        // Write the user message ID first
+        dataStream.writeData({
+          type: 'user-message-id',
+          content: userMessageId,
+        });
+
+        // Create a result object similar to what streamText returns
+        const result = {
+          fullStream: (async function* () {
+            yield {
+              type: 'text-delta',
+              textDelta: formattedResults
+            };
+          })(),
+          mergeIntoDataStream: async (ds: typeof dataStream) => {
+            // Write the text content
+            ds.writeData({
+              type: 'text-delta',
+              content: formattedResults
+            });
+            
+            // Write the assistant message ID
+            ds.writeMessageAnnotation({
+              messageIdFromServer: assistantMessageId,
+            });
+
+            // Signal completion
+            ds.writeData({ type: 'finish', content: '' });
+          }
+        };
+
+        console.log("result:", JSON.stringify(result, null, 2))
+
+        // Use the same pattern as the OpenAI flow
+        await result.mergeIntoDataStream(dataStream);
+      }
+    });
+  }
+
   const coreMessages = convertToCoreMessages(messages);
   const userMessage = getMostRecentUserMessage(coreMessages);
 
@@ -84,6 +186,7 @@ export async function POST(request: Request) {
 
   if (!chat) {
     const title = await generateTitleFromUserMessage({ message: userMessage });
+    console.log("title:", title)
     await saveChat({ id, userId: session.user.id, title });
   }
 
@@ -94,6 +197,7 @@ export async function POST(request: Request) {
       { ...userMessage, id: userMessageId, createdAt: new Date(), chatId: id },
     ],
   });
+  console.log("messages:", JSON.stringify(messages, null, 2))
 
   return createDataStreamResponse({
     execute: (dataStream) => {

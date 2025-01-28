@@ -30,6 +30,8 @@ export function Chat({
 }) {
   const { mutate } = useSWRConfig();
 
+  const chatKey = `${id}-${selectedModelId}`;
+
   const {
     messages,
     setMessages,
@@ -60,7 +62,7 @@ export function Chat({
 
   return (
     <>
-      <div className="flex flex-col min-w-0 h-dvh bg-background">
+      <div key={chatKey} className="flex flex-col min-w-0 h-dvh bg-background">
         <ChatHeader
           chatId={id}
           selectedModelId={selectedModelId}
