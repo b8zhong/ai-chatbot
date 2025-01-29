@@ -27,6 +27,7 @@ import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
 import { getWeather } from '@/lib/ai/tools/get-weather';
+import { searchAnserini, formatSearchResultsToMarkdown } from '@/lib/ai/services/anserini';
 
 export const maxDuration = 60;
 
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
   }
 
   // Handle Anserini search
-  if (model.id === 'anserini-java') {
+  if (model.type === 'search') {
     const coreMessages = convertToCoreMessages(messages);
     const userMessage = getMostRecentUserMessage(coreMessages);
     if (!userMessage) {
@@ -90,7 +91,7 @@ export async function POST(request: Request) {
       await saveChat({ id, userId: session.user.id, title });
     }
 
-    // Generate and save message IDs
+    // Generate message IDs
     const userMessageId = generateUUID();
     const assistantMessageId = generateUUID();
 
@@ -101,78 +102,77 @@ export async function POST(request: Request) {
       ],
     });
 
-    // Make request to Anserini API
-    const searchQuery = encodeURIComponent(userMessage.content.toString());
-    console.log("Search query:", searchQuery)
-    console.log("About to fetch the API.")
-    const response = await fetch(`http://localhost:8081/api/v1.0/indexes/msmarco-v1-passage/search?query=${searchQuery}`);
-    console.log("Fetched the API.")
-    const searchResults = await response.json();
-    console.log("Search results:", JSON.stringify(searchResults, null, 2))
-    
-    // Format results as markdown
-    const formattedResults = `### Search Results\n\n${searchResults.candidates.map((result: any, index: number) => (
-      `${index + 1}. **DocID:** ${result.docid} | **Score:** ${result.score}\n\n${result.doc.contents}\n\n`
-    )).join('')}`;
+    try {
+      if (!model.indexId) {
+        throw new Error('Index ID is required for search models');
+      }
+      // Search using Anserini service
+      const searchResults = await searchAnserini({
+        query: userMessage.content.toString(),
+        indexId: model.indexId,
+      });
 
-    console.log(JSON.stringify(formattedResults, null, 4))
+      // Format results as markdown
+      const formattedResults = formatSearchResultsToMarkdown(searchResults, model.indexId);
 
-    console.log("Formatted the results.")
-
-    // Save the assistant message
-    await saveMessages({
-      messages: [
-        {
-          id: assistantMessageId,
-          role: 'assistant',
-          content: formattedResults,
-          createdAt: new Date(),
-          chatId: id
-        }
-      ]
-    });
+      // Save the assistant message
+      await saveMessages({
+        messages: [
+          {
+            id: assistantMessageId,
+            role: 'assistant',
+            content: formattedResults,
+            createdAt: new Date(),
+            chatId: id
+          }
+        ]
+      });
 
     console.log("messages:", JSON.stringify(messages, null, 2))
-    // Return as a streaming response
-    return createDataStreamResponse({
-      execute: async (dataStream) => {
-        // Write the user message ID first
-        dataStream.writeData({
-          type: 'user-message-id',
-          content: userMessageId,
-        });
+      // Return as a streaming response
+      return createDataStreamResponse({
+        execute: async (dataStream) => {
+          // Write the user message ID first
+          dataStream.writeData({
+            type: 'user-message-id',
+            content: userMessageId,
+          });
 
-        // Create a result object similar to what streamText returns
-        const result = {
-          fullStream: (async function* () {
-            yield {
-              type: 'text-delta',
-              textDelta: formattedResults
-            };
-          })(),
-          mergeIntoDataStream: async (ds: typeof dataStream) => {
-            // Write the text content
-            ds.writeData({
-              type: 'text-delta',
-              content: formattedResults
-            });
-            
-            // Write the assistant message ID
-            ds.writeMessageAnnotation({
-              messageIdFromServer: assistantMessageId,
-            });
+          // Create a result object similar to what streamText returns
+          const result = {
+            fullStream: (async function* () {
+              yield {
+                type: 'text-delta',
+                textDelta: formattedResults
+              };
+            })(),
+            mergeIntoDataStream: async (ds: typeof dataStream) => {
+              // Write the text content
+              ds.writeData({
+                type: 'text-delta',
+                content: formattedResults
+              });
+              
+              // Write the assistant message ID
+              ds.writeMessageAnnotation({
+                messageIdFromServer: assistantMessageId,
+              });
 
-            // Signal completion
-            ds.writeData({ type: 'finish', content: '' });
-          }
-        };
+              // Signal completion
+              ds.writeData({ type: 'finish', content: '' });
+            }
+          };
 
         console.log("result:", JSON.stringify(result, null, 2))
 
-        // Use the same pattern as the OpenAI flow
-        await result.mergeIntoDataStream(dataStream);
-      }
-    });
+          // Use the same pattern as the OpenAI flow
+          await result.mergeIntoDataStream(dataStream);
+        }
+      });
+    } catch (error) {
+      console.error('Error processing Anserini search:', error);
+      return new Response('Error processing search request', { status: 500 });
+    }
   }
 
   const coreMessages = convertToCoreMessages(messages);

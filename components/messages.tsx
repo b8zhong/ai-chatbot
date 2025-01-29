@@ -70,13 +70,18 @@ function PureMessages({
 }
 
 export const Messages = memo(PureMessages, (prevProps, nextProps) => {
-  if (prevProps.isBlockVisible && nextProps.isBlockVisible) return true;
-
-  if (prevProps.isLoading !== nextProps.isLoading) return false;
-  if (prevProps.isLoading && nextProps.isLoading) return false;
+  // Always re-render if messages change
+  if (prevProps.messages !== nextProps.messages) return false;
   if (prevProps.messages.length !== nextProps.messages.length) return false;
-  if (!equal(prevProps.messages, nextProps.messages)) return false;
+  
+  // Always re-render if loading state changes
+  if (prevProps.isLoading !== nextProps.isLoading) return false;
+  
+  // Always re-render if votes change
   if (!equal(prevProps.votes, nextProps.votes)) return false;
+
+  // Re-render if block visibility changes
+  if (prevProps.isBlockVisible !== nextProps.isBlockVisible) return false;
 
   return true;
 });

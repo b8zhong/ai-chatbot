@@ -1,5 +1,8 @@
 import type { Message } from 'ai';
 
+
+// None of these appear to be going through here for now
+
 export const customMiddleware = {
   async transformOpenAIRequest(request: { messages: Message[]; model: string }) {
     // Log at entry point
