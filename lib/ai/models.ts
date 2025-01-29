@@ -1,6 +1,4 @@
 // Define your models here.
-import anseriniConfig from '@/config/anserini.json';
-
 export interface Model {
   id: string;
   label: string;
@@ -11,7 +9,7 @@ export interface Model {
 }
 
 export const models: Array<Model> = [
-  // Chat models
+// Chat models
   {
     id: 'gpt-4o-mini',
     label: 'GPT 4o mini',
@@ -23,9 +21,10 @@ export const models: Array<Model> = [
     id: 'gpt-4o',
     label: 'GPT 4o',
     apiIdentifier: 'gpt-4o',
-    description: 'For complex, multi-step tasks',
+    description: 'For complex questions about queries',
     type: 'chat'
   },
+
   // Search models
   {
     id: 'anserini-cacm',
