@@ -32,7 +32,7 @@ Do not update document right after creating it. Wait for user feedback or reques
 `;
 
 export const regularPrompt =
-  'You are a friendly assistant! Keep your responses concise and helpful.';
+  'You are a friendly assistant to assist with a user\'s queries on information retrieval. Assist with the user\'s queries on information retrieval in various indexes';
 
 export const systemPrompt = `${regularPrompt}\n\n${blocksPrompt}`;
 
